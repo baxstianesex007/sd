@@ -1,0 +1,84 @@
+import cyberpi
+import time
+import json
+
+# Constants for Wi-Fi and API URLs
+WIFI_SSID = "Cyberspace"
+WIFI_PASSWORD = "#bestinclass"
+POST_URL = "http://example.com/send_message"
+GET_URL = "http://example.com/get_messages"
+
+# Global variable to store messages
+messages = []
+
+def connect_to_wifi():
+    """Connect CyberPi to a Wi-Fi network."""
+    cyberpi.wifi.connect(WIFI_SSID, WIFI_PASSWORD)
+    if cyberpi.wifi.is_connect():
+        cyberpi.console.println("Connected to Wi-Fi!")
+    else:
+        cyberpi.console.println("Failed to connect to Wi-Fi. Check credentials.")
+
+def send_message():
+    """Send a message to the server."""
+    message = "Hello from CyberPi!"
+    if cyberpi.wifi.is_connect():
+        try:
+            response = cyberpi.http.post(POST_URL, json.dumps({"message": message}))
+            if "200" in response:  # CyberPi's HTTP functions return strings, check for "200"
+                cyberpi.console.println("Message sent successfully!")
+            else:
+                cyberpi.console.println("Failed to send. Response: {response}")
+        except Exception as e:
+            cyberpi.console.println("Error: {e}")
+    else:
+        cyberpi.console.println("No Wi-Fi connection!")
+
+def receive_messages():
+    """Retrieve messages from the server."""
+    global messages
+    if cyberpi.wifi.is_connect():
+        try:
+            response = cyberpi.http.get(GET_URL)
+            if response.startswith("200"):
+                # Extract and parse the JSON data from the response
+                data_start = response.find("{")
+                if data_start != -1:
+                    messages = json.loads(response[data_start:])
+                    cyberpi.console.println("Messages received!")
+                else:
+                    cyberpi.console.println("No valid JSON in response.")
+            else:
+                cyberpi.console.println("Failed to receive. Response: {response}")
+        except Exception as e:
+            cyberpi.console.println("Error: {e}")
+    else:
+        cyberpi.console.println("No Wi-Fi connection!")
+
+def display_messages():
+    """Continuously display messages on CyberPi."""
+    while True:
+        if messages:
+            for msg in messages:
+                cyberpi.display.show_label(msg, 16)
+                time.sleep(2)  # Display each message for 2 seconds
+        else:
+            cyberpi.display.show_label("No messages", 16)
+        time.sleep(2)  # Refresh every 2 seconds
+
+@cyberpi.event.is_press('a')
+def on_button_a_press():
+    """Event handler for button A press."""
+    send_message()
+
+@cyberpi.event.is_press('b')
+def on_button_b_press():
+    """Event handler for button B press."""
+    receive_messages()
+
+# Main Program
+connect_to_wifi()
+cyberpi.console.println("Ready!")
+
+# Start displaying messages in the background
+display_messages()
